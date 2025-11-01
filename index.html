@@ -47,48 +47,59 @@
     </div>
 
     <script>
-        // --- 1. 新的 Vercel 配置 ---
-        const config={
+        // --- 配置 ---
+        const config = {
             model: 'bot-20251031115408-jz6th', 
             stream: true,
             saveToQualtrics: true,
             maxConversations: 10,
-            fallbackToMock: false,
+            fallbackToMock: true,
+            maxHistoryMessages: 20
         };
 
         function initArinChat() {
-            const messages=document.getElementById('messages'),input=document.getElementById('message-input'),btn=document.getElementById('send-button'),avatar=document.getElementById('avatar');
-            let count=0;
+            const messages = document.getElementById('messages'),
+                  input = document.getElementById('message-input'),
+                  btn = document.getElementById('send-button'),
+                  avatar = document.getElementById('avatar');
+            
+            let count = 0;
             let conversationHistory = []; 
             const systemPrompt = "你是一个友好、乐于助人的AI助手Arin。你的回答简洁明了，偶尔在句末使用波浪号(~)表达亲切感。";
 
-            addMsg('bot','Hello! I am Arin, nice to meet you');
+            addMsg('bot', 'Hello! I am Arin, nice to meet you');
             
-            if(typeof Qualtrics!=='undefined'&&typeof Qualtrics.SurveyEngine!=='undefined') {
+            // Qualtrics 集成
+            if (typeof Qualtrics !== 'undefined' && typeof Qualtrics.SurveyEngine !== 'undefined') {
                 Qualtrics.SurveyEngine.addOnload(function() {
                     try {
-                        const nextBtn=document.querySelector('#NextButton');
-                        if(nextBtn) nextBtn.style.display='none';
-                        const defInput=document.querySelector('input[type="text"]');
-                        if(defInput&&defInput!==input) defInput.style.display='none';
-                    } catch(e) {console.error('Error hiding Qualtrics elements:',e);}
+                        const nextBtn = document.querySelector('#NextButton');
+                        if (nextBtn) nextBtn.style.display = 'none';
+                        const defInput = document.querySelector('input[type="text"]');
+                        if (defInput && defInput !== input) defInput.style.display = 'none';
+                    } catch(e) {
+                        console.error('Error hiding Qualtrics elements:', e);
+                    }
                 });
             }
             
-            btn.addEventListener('click',sendMsg);
-            input.addEventListener('keypress',function(e) {if(e.key==='Enter') sendMsg();});
+            btn.addEventListener('click', sendMsg);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMsg();
+            });
 
             function sendMsg() {
-                const msg=input.value.trim();
-                if(!msg) return;
-                addMsg('user',msg);
-                input.value='';
+                const msg = input.value.trim();
+                if (!msg) return;
+                
+                addMsg('user', msg);
+                input.value = '';
                 conversationHistory.push({ role: 'user', content: msg });
                 
-                const typing=document.createElement('div');
-                typing.className='message bot-message';
-                typing.textContent='Typing...';
-                typing.id='typing-indicator';
+                const typing = document.createElement('div');
+                typing.className = 'message bot-message';
+                typing.textContent = 'Typing...';
+                typing.id = 'typing-indicator';
                 messages.appendChild(typing);
                 scrollToBottom();
                 
@@ -100,27 +111,47 @@
                     model: config.model,
                     stream: config.stream,
                     stream_options: { include_usage: true },
-                    messages: [ { role: 'system', content: systemPrompt }, ...history ]
+                    messages: [{ role: 'system', content: systemPrompt }, ...history]
                 };
+
+                console.log('Sending request to Vercel API...', requestData);
 
                 fetch('/api/chat', { 
                     method: 'POST',
-                    cache: 'no-store',
-                    headers: { 'Content-Type': 'application/json' },
+                    cache: 'no-cache',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify(requestData),
                 })
                 .then(response => {
-                    if (!response.ok) throw new Error('API error: ' + response.statusText);
+                    console.log('API Response status:', response.status);
+                    console.log('API Response headers:', response.headers);
+                    
+                    if (!response.ok) {
+                        throw new Error(`API error: ${response.status} ${response.statusText}`);
+                    }
                     
                     if (config.stream) {
                         let fullResponse = '';
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder('utf-8');
                         
+                        // 移除 typing 指示器
+                        const indicator = document.getElementById('typing-indicator');
+                        if (indicator) indicator.remove();
+                        
+                        // 创建新的消息容器用于流式显示
+                        const streamMessage = document.createElement('div');
+                        streamMessage.className = 'message bot-message';
+                        streamMessage.id = 'streaming-message';
+                        messages.appendChild(streamMessage);
+                        
                         function processStream() {
                             reader.read().then(({ done, value }) => {
                                 if (done) {
-                                    handleResponse(fullResponse || "Thank you for your message!", userMsg);
+                                    console.log('Stream completed');
+                                    handleStreamComplete(fullResponse, userMsg);
                                     return;
                                 }
                                 
@@ -131,39 +162,34 @@
                                     if (line.startsWith('data: ')) {
                                         const data = line.slice(6);
                                         if (data === '[DONE]') {
-                                            handleResponse(fullResponse || "Thank you for your message!", userMsg);
+                                            console.log('Stream DONE received');
+                                            handleStreamComplete(fullResponse, userMsg);
                                             return;
                                         }
 
-                                        // ⬇️ ‼️‼️‼️ 【关键的调试代码】 ‼️‼️‼️
                                         try {
-                                            // 1. 打印 API 返回的【每一条】原始数据
-                                            console.log("RAW API DATA CHUNK:", data); 
-                                            
                                             const parsed = JSON.parse(data);
                                             if (parsed.choices && parsed.choices[0].delta?.content) {
-                                                fullResponse += parsed.choices[0].delta.content;
-                                            } else {
-                                                // 2. 如果数据不是我们想要的格式，也打印出来
-                                                console.warn("Unrecognized (but valid) JSON chunk:", parsed);
+                                                const content = parsed.choices[0].delta.content;
+                                                fullResponse += content;
+                                                streamMessage.textContent = fullResponse;
+                                                scrollToBottom();
                                             }
                                         } catch (e) {
-                                            // 3. 如果 JSON 解析失败，打印错误
-                                            console.error("Failed to parse JSON chunk:", data, e);
+                                            console.warn('Failed to parse JSON chunk:', data, e);
                                         }
-                                        // ⬆️ ‼️‼️‼️ 【调试代码结束】 ‼️‼️‼️
                                     }
                                 }
                                 processStream();
                             }).catch((e) => {
                                 console.error('Stream processing error:', e);
-                                if (config.fallbackToMock) { useMock(userMsg); } 
-                                else { handleError('Stream processing error'); }
+                                handleStreamError(userMsg, e.message);
                             });
                         }
                         processStream();
                     } else {
                         return response.json().then(data => {
+                            console.log('Non-stream response:', data);
                             let reply = "I understand.";
                             if (data.choices && data.choices[0].message) {
                                 reply = data.choices[0].message.content.trim();
@@ -174,63 +200,140 @@
                 })
                 .catch((e) => {
                     console.error('Fetch error:', e);
-                    if (config.fallbackToMock) { useMock(userMsg); } 
-                    else { handleError('Connection failed. Please check network.'); }
+                    if (config.fallbackToMock) {
+                        console.log('Falling back to mock response');
+                        useMock(userMsg);
+                    } else {
+                        handleError('Connection failed: ' + e.message);
+                    }
                 });
             }
 
+            function handleStreamComplete(fullResponse, userMsg) {
+                const streamMessage = document.getElementById('streaming-message');
+                if (streamMessage) {
+                    streamMessage.id = ''; // 移除 ID
+                }
+                handleResponse(fullResponse || "Thank you for your message!", userMsg);
+            }
+
+            function handleStreamError(userMsg, error) {
+                const streamMessage = document.getElementById('streaming-message');
+                if (streamMessage) {
+                    streamMessage.remove();
+                }
+                if (config.fallbackToMock) {
+                    useMock(userMsg);
+                } else {
+                    handleError('Stream error: ' + error);
+                }
+            }
+
             function useMock(msg) {
-                setTimeout(()=>{
-                    const reply=getMockReply(msg);
-                    handleResponse(reply, msg); 
+                setTimeout(() => {
+                    const reply = getMockReply(msg);
+                    handleResponse(reply, msg);
                 }, 1000);
             }
 
             function getMockReply(msg) {
-                const lower=msg.toLowerCase(),responses={ 'hello|hi|hey':['Hello!','Hi there!'], 'how are you|how r u':['I\'m doing well! How about you?','I\'m great!'], 'your name|who are you':['I\'m Arin!','My name is Arin!'], 'help|assist':['I\'d be happy to help! What do you need?～','Sure thing! Just let me know!～'], 'bye|goodbye':['Goodbye!','See you later!'], 'thank you|thanks':['You\'re welcome!','No problem!'] };
-                for(const[keywords,replies]of Object.entries(responses)) {
-                    if(new RegExp(keywords,'i').test(lower)) return replies[Math.floor(Math.random()*replies.length)];
+                const lower = msg.toLowerCase();
+                const responses = {
+                    'hello|hi|hey': ['Hello!', 'Hi there!'],
+                    'how are you|how r u': ['I\'m doing well! How about you?', 'I\'m great!'],
+                    'your name|who are you': ['I\'m Arin!', 'My name is Arin!'],
+                    'help|assist': ['I\'d be happy to help! What do you need?～', 'Sure thing! Just let me know!～'],
+                    'bye|goodbye': ['Goodbye!', 'See you later!'],
+                    'thank you|thanks': ['You\'re welcome!', 'No problem!']
+                };
+                
+                for (const [keywords, replies] of Object.entries(responses)) {
+                    if (new RegExp(keywords, 'i').test(lower)) {
+                        return replies[Math.floor(Math.random() * replies.length)];
+                    }
                 }
-                const defaultReplies=['I understand. Can you tell me more?～','How can I help with this?～','I see. Could you elaborate?～'];
-                return defaultReplies[Math.floor(Math.random()*defaultReplies.length)];
+                
+                const defaultReplies = [
+                    'I understand. Can you tell me more?～',
+                    'How can I help with this?～',
+                    'I see. Could you elaborate?～'
+                ];
+                return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
             }
 
             function handleResponse(botReply, userMsg) {
                 try {
-                    const indicator=document.getElementById('typing-indicator');
-                    if(indicator) indicator.remove();
-                    addMsg('bot', botReply);
+                    const indicator = document.getElementById('typing-indicator');
+                    if (indicator) indicator.remove();
+                    
+                    // 确保消息只添加一次
+                    const existingStreamMessage = document.getElementById('streaming-message');
+                    if (!existingStreamMessage) {
+                        addMsg('bot', botReply);
+                    }
+                    
                     checkBlush(botReply);
                     conversationHistory.push({ role: 'assistant', content: botReply });
+                    
+                    // 限制历史记录长度
                     if (conversationHistory.length > config.maxHistoryMessages * 2) {
                         conversationHistory = conversationHistory.slice(-config.maxHistoryMessages * 2);
                     }
-                    if(config.saveToQualtrics) {
+                    
+                    if (config.saveToQualtrics) {
                         saveChat(userMsg, botReply);
                     }
+                    
                     count++;
-                    if(count>=config.maxConversations) {
+                    if (count >= config.maxConversations) {
                         addMsg('bot', 'Thank you, our conversation is complete. You will be redirected shortly.');
-                        setTimeout(()=>{
+                        setTimeout(() => {
                             try {
                                 window.parent.postMessage({ type: 'moveToNextPage' }, 'https://lse.eu.qualtrics.com');
-                            } catch(e) { console.error('Error sending nextPage message:', e); }
+                            } catch(e) {
+                                console.error('Error sending nextPage message:', e);
+                            }
                         }, 3000);
                     }
-                } catch(e) {console.error('Error processing API response:',e);handleError('Error processing response');}
+                } catch(e) {
+                    console.error('Error processing API response:', e);
+                    handleError('Error processing response');
+                }
             }
 
             function handleError(error) {
-                console.error('API Error:',error);
-                const indicator=document.getElementById('typing-indicator');
-                if(indicator) indicator.remove();
-                addMsg('bot','Connection error: Unable to reach the server. Please check your network connection and try again.');
+                console.error('API Error:', error);
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) indicator.remove();
+                
+                const streamMessage = document.getElementById('streaming-message');
+                if (streamMessage) streamMessage.remove();
+                
+                addMsg('bot', 'Connection error: Unable to reach the server. Please check your network connection and try again.');
             }
 
-            function checkBlush(text) {if(text.includes('～')||text.includes('~')) triggerBlush();}
-            function triggerBlush() {avatar.classList.add('blush');setTimeout(()=>{avatar.classList.remove('blush');},2500);}
-            function addMsg(sender,content) {const div=document.createElement('div');div.className=`message ${sender}-message`;div.textContent=content;messages.appendChild(div);scrollToBottom();}
-            function scrollToBottom() {messages.scrollTop=messages.scrollHeight;}
+            function checkBlush(text) {
+                if (text.includes('～') || text.includes('~')) triggerBlush();
+            }
+
+            function triggerBlush() {
+                avatar.classList.add('blush');
+                setTimeout(() => {
+                    avatar.classList.remove('blush');
+                }, 2500);
+            }
+
+            function addMsg(sender, content) {
+                const div = document.createElement('div');
+                div.className = `message ${sender}-message`;
+                div.textContent = content;
+                messages.appendChild(div);
+                scrollToBottom();
+            }
+
+            function scrollToBottom() {
+                messages.scrollTop = messages.scrollHeight;
+            }
 
             function saveChat(userMsg, botResp) {
                 let historyString = conversationHistory.map(msg => {
@@ -238,13 +341,14 @@
                     const content = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     return `${prefix} ${content}`;
                 }).join('\n---\n');
+                
                 try {
                     window.parent.postMessage({
                         type: 'saveToQualtrics',
                         history: historyString,
                         lastResponse: botResp,
-                        lastUserMessage: userMsg, 
-                        conversationCount: count + 1 
+                        lastUserMessage: userMsg,
+                        conversationCount: count
                     }, 'https://lse.eu.qualtrics.com');
                 } catch (e) {
                     console.error('Error sending message to Qualtrics parent window:', e);
@@ -252,14 +356,16 @@
             }
         }
 
-        if(typeof Qualtrics!=='undefined') {
+        // 初始化
+        if (typeof Qualtrics !== 'undefined') {
             Qualtrics.SurveyEngine.addOnload(function() {
                 initArinChat();
             });
         } else {
-            document.addEventListener('DOMContentLoaded',initArinChat);
+            document.addEventListener('DOMContentLoaded', initArinChat);
         }
 
+        // Mock Qualtrics 环境（用于本地测试）
         if (typeof Qualtrics === 'undefined') {
             window.Qualtrics = window.Qualtrics || {};
             window.Qualtrics.SurveyEngine = {
@@ -271,8 +377,12 @@
                     }
                 },
                 addOnPageSubmit: function() {},
-                setEmbeddedData: function(k, v) { console.log(`[Mock Qualtrics]: Set ${k} = ${v}`); },
-                getEmbeddedData: function(k) { return null; }
+                setEmbeddedData: function(k, v) {
+                    console.log(`[Mock Qualtrics]: Set ${k} = ${v}`);
+                },
+                getEmbeddedData: function(k) {
+                    return null;
+                }
             };
 
             window.addEventListener('message', function(event) {
