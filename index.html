@@ -3,138 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arin AI Assistant</title>
+    <title>Arin</title>
     <style>
-        .arin-chat-container {width:100%;max-width:600px;background:#fff;border-radius:15px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden;margin:0 auto;}
-        .arin-header {background:#6a8ca9;color:#fff;padding:15px 20px;display:flex;justify-content:center;align-items:center;gap:15px;}
-        .arin-avatar-container {position:relative;}
-        .arin-avatar {width:60px;height:60px;border-radius:50%;background:#fff;display:flex;justify-content:center;align-items:center;font-size:28px;color:#6a8ca9;font-weight:bold;transition:background-color 0.3s;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="40" r="25" fill="%236a8ca9"/><circle cx="38" cy="35" r="5" fill="white"/><circle cx="62" cy="35" r="5" fill="white"/><path d="M 35 55 Q 50 65 65 55" stroke="white" stroke-width="3" fill="none"/></svg>');background-size:cover;}
-        .arin-avatar.arin-blush {background:#ffcccc;animation:arin-blush-animation 2s ease-in-out;}
-        @keyframes arin-blush-animation {0%{background:#fff;}50%{background:#ffcccc;}100%{background:#fff;}}
-        .arin-name {font-size:18px;font-weight:bold;}
-        .arin-messages {height:400px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:15px;}
-        .arin-message {max-width:70%;padding:12px 16px;border-radius:18px;word-wrap:break-word;}
-        .arin-user-message {background:#e3f2fd;align-self:flex-end;border-bottom-right-radius:4px;}
-        .arin-bot-message {background:#f1f1f1;align-self:flex-start;border-bottom-left-radius:4px;position:relative;}
-        .arin-blush-indicator {position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#ff69b4;border-radius:50%;opacity:0;animation:arin-fade-in-out 2s ease-in-out;}
-        @keyframes arin-fade-in-out {0%{opacity:0;}25%{opacity:1;}75%{opacity:1;}100%{opacity:0;}}
-        .arin-input-container {display:flex;padding:20px;gap:10px;border-top:1px solid #e0e0e0;}
-        .arin-input-field {flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:24px;outline:none;font-size:16px;}
-        .send-button {background:#4a6fa5;color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;display:flex;justify:content:center;align-items:center;font-size:20px;transition:background 0.2s;}
-        .send-button:hover {background:#3a5a85;}
-        .arin-chat-container * {box-sizing:border-box;}
-        @media (max-width:600px){.arin-chat-container{border-radius:0;box-shadow:none;}.arin-messages{height:350px;}}
+        body {font-family:Arial,sans-serif;margin:0;padding:0;background:transparent}
+        .chat-container {width:100%;max-width:600px;background:#fff;border-radius:15px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden;margin:0 auto}
+        .header {background:#6a8ca9;color:#fff;padding:15px 20px;display:flex;justify-content:center;align-items:center;gap:15px}
+        .avatar-container {position:relative}
+        .avatar {width:40px;height:40px;border-radius:50%;background:transparent;display:flex;justify-content:center;align-items:center;font-size:20px;transition:all 0.3s ease;padding:2px}
+        .avatar svg {width:100%;height:100%;object-fit:contain;z-index:1}
+        .avatar.blush {animation:blush-animation 2.5s ease-in-out}
+        @keyframes blush-animation {0%{transform:scale(1)}30%{transform:scale(1.05)}60%{transform:scale(1.03)}100%{transform:scale(1)}}
+        .avatar::before,.avatar::after {content:'';position:absolute;width:12px;height:8px;border-radius:50%;background:rgba(255,105,180,0.7);opacity:0;animation:blush-spot 2.5s ease-in-out;z-index:2}
+        .avatar.blush::before,.avatar.blush::after {opacity:0.7}
+        .avatar::before {top:25px;left:5px}
+        .avatar::after {top:25px;right:5px}
+        @keyframes blush-spot {10%{opacity:0}30%{opacity:0.7}70%{opacity:0.7}90%{opacity:0}100%{opacity:0}}
+        .name {font-size:18px;font-weight:bold}
+        .messages {height:400px;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:15px}
+        .message {max-width:70%;padding:12px 16px;border-radius:18px;word-wrap:break-word}
+        .user-message {background:#e3f2fd;align-self:flex-end;border-bottom-right-radius:4px}
+        .bot-message {background:#f1f1f1;align-self:flex-start;border-bottom-left-radius:4px;position:relative}
+        .input-container {display:flex;padding:20px;gap:10px;border-top:1px solid #e0e0e0}
+        .input-field {flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:24px;outline:none;font-size:16px}
+        .send-button {background:#4a6fa5;color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;display:flex;justify-content:center;align-items:center;font-size:20px;transition:background-color 0.2s}
+        .send-button:hover {background:#3a5a85}
     </style>
 </head>
 <body>
-    <div class="arin-chat-container">
-        <div class="arin-header">
-            <div class="arin-avatar-container">
-                <div class="arin-avatar" id="arin-avatar">A</div>
+    <div class="chat-container">
+        <div class="header">
+            <div class="avatar-container">
+                <div class="avatar" id="avatar">
+                    <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M771.413 155.307c-17.067-27.307-18.773-63.147-1.707-92.16 23.893-40.96 78.507-56.32 119.467-32.427 27.307 15.36 44.373 44.373 44.373 76.8s-17.067 61.44-44.373 76.8c-15.36 8.533-30.72 11.947-47.787 11.947L785.067 293.547c105.813 85.333 174.08 215.04 174.08 361.813v174.08c0 98.987-78.507 177.493-177.493 177.493H211.627C114.347 1006.933 34.133 926.72 34.133 829.44V653.653c0-151.893 73.387-286.72 186.027-370.347l-51.2-88.747c-34.133 3.413-66.56-11.947-85.333-42.667-23.893-42.667-10.24-97.28 32.427-121.173 25.6-23.893 70.613-10.24 92.507 12.16 17.067 29.013 15.36 61.44 0 88.747l51.2 90.453c63.147-30.72 133.12-49.493 208.213-49.493 80.213 0 155.307 20.48 221.867 56.32l52.907-93.867zM646.827 604.16c-23.893 0-44.373-20.48-44.373-44.373v-44.374c0-23.893 20.48-44.373 44.373-44.373 23.893 0 44.373 20.48 44.373 44.373v44.374c0 23.893-20.48 44.373-44.373 44.373zM348.16 604.16c-23.893 0-44.373-20.48-44.373-44.373v-44.374c0-23.893 20.48-44.373 44.373-44.373 23.893 0 44.373 20.48 44.373 44.373v44.374c0 23.893-20.48 44.373-44.373 44.373zM496.64 273.067c-211.627 0-382.293 172.373-382.293 382.293v180.907c0 49.493 40.96 90.453 90.453 90.453h587.093c49.493 0 90.453-40.96 90.453-90.453v-180.907c0-35.84-5.12-71.68-15.36-105.813-80.213-142.507-227-260.267-402.827-260.267zM648.533 733.867c-27.307 59.733-85.333 98.987-151.893 98.986-66.56 0-124.587-40.96-151.893-100.693-1.707-3.413-3.413-8.533-3.413-13.653 0-17.067 11.947-29.013 29.013-29.014 10.24 0 20.48 6.827 25.6 17.067 17.067 40.96 56.32 68.267 100.693 68.267 44.373 0 83.627-27.307 100.693-68.267 5.12-10.24 13.653-17.067 25.6-17.067 15.36 0 29.013 13.653 29.013 29.014 0 5.12-1.707 10.24-3.413 15.36z" fill="#ffffff"></path></svg>
+                </div>
             </div>
-            <div class="arin-name">Arin</div>
+            <div class="name">Arin</div>
         </div>
-        <div class="arin-messages" id="arin-messages"></div>
-        <div class="arin-input-container">
-            <input type="text" class="arin-input-field" id="arin-message-input" placeholder="Type a message..." autocomplete="off">
-            <button class="arin-send-button" id="arin-send-button">→</button>
+        <div class="messages" id="messages"></div>
+        <div class="input-container">
+            <input type="text" class="input-field" id="message-input" placeholder="Type a message..." autocomplete="off">
+            <button class="send-button" id="send-button">→</button>
         </div>
     </div>
 
     <script>
-        const arinConfig = {
-            // apiMode 'direct' 将被用于调用我们的 /api/chat 代理
-            apiMode: 'direct', 
-            // ⬇️ 我们不再需要硬编码的 API Key 信息
-            // directApi: { ... } 已被移除
-            
-            // 你的模型 ID，它将在 callDirectApi 中被使用
+        // --- 1. 新的 Vercel 配置 ---
+        const config={
+            // ‼️ 确保这个模型 ID 和你 api/chat.js 里的一致
             model: 'bot-20251031115408-jz6th', 
             stream: true,
             saveToQualtrics: true,
-            contextHistory: true,
-            maxHistoryMessages: 10,
-            fallbackToMock: true
+            maxConversations: 10,
+            
+            // 你的 enableInternationalSupport 逻辑现在由 fallbackToMock 控制
+            fallbackToMock: false, // 设为 false，这样 API 失败时会显示错误
+            
+            // 你的 webServiceId 和 IP 地址不再需要
         };
-        
-        Qualtrics.SurveyEngine.addOnload(function() {
-            var that = this;
+
+        function initArinChat() {
+            const messages=document.getElementById('messages'),input=document.getElementById('message-input'),btn=document.getElementById('send-button'),avatar=document.getElementById('avatar');
+            let count=0;
             
-            const messagesContainer = document.getElementById('arin-messages');
-            const messageInput = document.getElementById('arin-message-input');
-            const sendButton = document.getElementById('arin-send-button');
-            const avatar = document.getElementById('arin-avatar');
-            
-            // 这是我们的本地聊天记录存储
+            // 用于 Vercel 方案的聊天记录
             let conversationHistory = []; 
             const systemPrompt = "你是一个友好、乐于助人的AI助手Arin。你的回答简洁明了，偶尔在句末使用波浪号(~)表达亲切感。";
+
+            addMsg('bot','Hello! I am Arin, nice to meet you');
             
-            addMessage('bot', 'Hello! I am Arin, nice to meet you');
-            
-            sendButton.addEventListener('click', sendMessage);
-            messageInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
-            messageInput.addEventListener('keydown', function(e) { e.stopPropagation(); });
-            
-            function sendMessage() {
-                const message = messageInput.value.trim();
-                if (!message) return;
-                
-                addMessage('user', message);
-                
-                // 【重要】在调用 API 之前，先将用户的消息添加到历史记录中
-                if (arinConfig.contextHistory) {
-                    conversationHistory.push({ role: 'user', content: message });
-                    if (conversationHistory.length > arinConfig.maxHistoryMessages) conversationHistory.shift();
-                }
-                
-                messageInput.value = '';
-                
-                const typingIndicator = document.createElement('div');
-                typingIndicator.className = 'arin-message arin-bot-message';
-                typingIndicator.textContent = 'Typing...';
-                typingIndicator.id = 'arin-typing-indicator';
-                messagesContainer.appendChild(typingIndicator);
-                scrollToBottom();
-                
-                if (arinConfig.apiMode === 'direct') {
-                    // 我们将调用 'callDirectApi'，但它现在会指向我们的 Vercel 代理
-                    callDirectApi(message);
-                } else {
-                    useMockResponse(message);
-                }
+            // 这部分 Qualtrics 逻辑完全保留
+            if(typeof Qualtrics!=='undefined'&&typeof Qualtrics.SurveyEngine!=='undefined') {
+                Qualtrics.SurveyEngine.addOnload(function() {
+                    try {
+                        const nextBtn=document.querySelector('#NextButton');
+                        if(nextBtn) nextBtn.style.display='none';
+                        const defInput=document.querySelector('input[type="text"]');
+                        if(defInput&&defInput!==input) defInput.style.display='none';
+                    } catch(e) {console.error('Error hiding Qualtrics elements:',e);}
+                });
             }
             
-            /**
-             * ‼️【函数已修改】
-             * 这个函数现在调用相对路径 /api/chat (我们的Vercel代理)
-             * 它不再需要任何 API 密钥。
-             */
-            function callDirectApi(message) {
+            btn.addEventListener('click',sendMsg);
+            input.addEventListener('keypress',function(e) {if(e.key==='Enter') sendMsg();});
+
+            // --- 2. 修改后的 sendMsg ---
+            function sendMsg() {
+                const msg=input.value.trim();
+                if(!msg) return;
+
+                addMsg('user',msg);
+                input.value='';
+
+                // 将用户消息添加到历史记录
+                conversationHistory.push({ role: 'user', content: msg });
                 
-                // 准备要发送给代理的数据
+                const typing=document.createElement('div');
+                typing.className='message bot-message';
+                typing.textContent='Typing...';
+                typing.id='typing-indicator';
+                messages.appendChild(typing);
+                scrollToBottom();
+                
+                // ‼️【移除】不再需要 setEmbeddedData('UserMessage', msg)
+                
+                // ‼️【简化】删除了 switch 语句和 checkProxy
+                // 我们现在总是调用 Vercel 代理
+                callVercelProxy(msg, conversationHistory);
+            }
+            
+            // --- 3. 【全新】的 callVercelProxy 函数 (支持流式响应) ---
+            function callVercelProxy(userMsg, history) {
+                
                 let requestData = {
-                    model: arinConfig.model,
-                    stream: arinConfig.stream,
+                    model: config.model,
+                    stream: config.stream,
                     stream_options: { include_usage: true },
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        // 'conversationHistory' 已经包含了刚刚添加的最新用户消息
-                        ...conversationHistory 
+                        ...history 
                     ]
                 };
-                
-                // ⬇️ 【关键修改】
-                fetch('/api/chat', { // 指向 Vercel 的相对路径
+
+                fetch('/api/chat', { // 指向 Vercel 代理的相对路径
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData),
                 })
                 .then(response => {
-                    if (!response.ok) throw new Error('API 错误');
+                    if (!response.ok) throw new Error('API error: ' + response.statusText);
                     
-                    if (arinConfig.stream) {
+                    if (config.stream) {
                         let fullResponse = '';
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder('utf-8');
@@ -142,8 +140,7 @@
                         function processStream() {
                             reader.read().then(({ done, value }) => {
                                 if (done) {
-                                    // ⬇️【Bug修复】将 'message' (用户消息) 传递给 handleApiResponse
-                                    handleApiResponse(fullResponse || "Thank you for your message!", message);
+                                    handleResponse(fullResponse || "Thank you for your message!", userMsg);
                                     return;
                                 }
                                 
@@ -154,7 +151,7 @@
                                     if (line.startsWith('data: ')) {
                                         const data = line.slice(6);
                                         if (data === '[DONE]') {
-                                            handleApiResponse(fullResponse || "Thank you for your message!", message);
+                                            handleResponse(fullResponse || "Thank you for your message!", userMsg);
                                             return;
                                         }
                                         try {
@@ -166,135 +163,161 @@
                                     }
                                 }
                                 processStream();
-                            }).catch(() => {
-                                if (arinConfig.fallbackToMock) { useMockResponse(message); } 
-                                else { handleApiError('连接失败，请稍后再试'); }
+                            }).catch((e) => {
+                                console.error('Stream processing error:', e);
+                                if (config.fallbackToMock) { useMock(userMsg); } 
+                                else { handleError('Stream processing error'); }
                             });
                         }
                         processStream();
                     } else {
-                        // 非流式处理
+                        // Vercel 代理也支持非流式，但代码会返回流，所以这里理论上不会执行
+                        // 但以防万一，我们保留一个非流式处理
                         return response.json().then(data => {
-                            let reply = "I understand. Can you tell me more?";
+                            let reply = "I understand.";
                             if (data.choices && data.choices[0].message) {
                                 reply = data.choices[0].message.content.trim();
                             }
-                            handleApiResponse(reply, message);
-S                        });
+                            handleResponse(reply, userMsg);
+                        });
                     }
                 })
-                .catch(() => {
-                    if (arinConfig.fallbackToMock) { useMockResponse(message); } 
-                    else { handleApiError('连接失败，请稍后再试'); }
+                .catch((e) => {
+                    console.error('Fetch error:', e);
+                    if (config.fallbackToMock) { useMock(userMsg); } 
+                    else { handleError('Connection failed. Please check network.'); }
                 });
             }
-            
-            function useMockResponse(message) {
-                setTimeout(() => {
-                    const reply = getMockResponse(message);
-                    handleApiResponse(reply, message); // 确保也传递 message
+
+            // --- 4. 你的 Mock 函数 (完全保留) ---
+            function useMock(msg) {
+                setTimeout(()=>{
+                    const reply=getMockReply(msg);
+                    // ‼️【修改】确保 handleResponse 的参数正确
+                    handleResponse(reply, msg); 
                 }, 1000);
             }
-            
-            function getMockResponse(message) {
-                // ... (你的 mock 逻辑，无需修改) ...
-                const lowerMessage = message.toLowerCase();
-                const responses = {
-                    'hello|hi|hey': ['Hello! Nice to chat!', 'Hi there! How can I help?', 'Hey! Great to talk!'],
-                    'how are you|how r u': ['I\'m doing well, thanks! How about you?', 'Great! How can I assist?', 'I\'m wonderful! How are you?'],
-                    'your name|who are you': ['I\'m Arin, here to help!', 'Arin, your friendly assistant!', 'You can call me Arin!'],
-                    'help|assist': ['Happy to help! What do you need?', 'Of course! What can I do?', 'Sure! Let me know.～'],
-                    'bye|goodbye': ['Goodbye! Nice talking to you!', 'See you later!', 'Bye! Chat anytime!'],
-                    'thank you|thanks': ['You\'re welcome!', 'No problem!', 'Very welcome!']
+
+            function getMockReply(msg) {
+                const lower=msg.toLowerCase(),responses={
+                    'hello|hi|hey':['Hello!','Hi there!'],
+                    'how are you|how r u':['I\'m doing well! How about you?','I\'m great!'],
+                    'your name|who are you':['I\'m Arin!','My name is Arin!'],
+                    'help|assist':['I\'d be happy to help! What do you need?～','Sure thing! Just let me know!～'],
+                    'bye|goodbye':['Goodbye!','See you later!'],
+                    'thank you|thanks':['You\'re welcome!','No problem!']
                 };
-                for (const [keywords, replies] of Object.entries(responses)) {
-                    if (new RegExp(keywords, 'i').test(lowerMessage)) {
-                        return replies[Math.floor(Math.random() * replies.length)];
+                
+                for(const[keywords,replies]of Object.entries(responses)) {
+                    const regex=new RegExp(keywords,'i');
+                    if(regex.test(lower)) return replies[Math.floor(Math.random()*replies.length)];
+                }
+                
+                const defaultReplies=['I understand. Can you tell me more?～','How can I help with this?～','I see. Could you elaborate?～'];
+                return defaultReplies[Math.floor(Math.random()*defaultReplies.length)];
+            }
+
+            // --- 5. 【修改后】的 handleResponse ---
+            function handleResponse(botReply, userMsg) {
+                try {
+                    const indicator=document.getElementById('typing-indicator');
+                    if(indicator) indicator.remove();
+
+                    // ‼️【简化】不再需要 JSON.parse(response) 或检查 data.success
+                    // botReply 现在就是纯文本回复
+                    
+                    // ‼️【移除】不再需要 setEmbeddedData('ArinResponse', reply)
+
+                    addMsg('bot', botReply);
+                    checkBlush(botReply);
+                    
+                    // 将机器人回复添加到历史记录
+                    conversationHistory.push({ role: 'assistant', content: botReply });
+                    if (conversationHistory.length > config.maxHistoryMessages * 2) {
+                        conversationHistory = conversationHistory.slice(-config.maxHistoryMessages * 2);
                     }
-                }
-                const defaultResponses = ['I understand. Can you tell me more?','That\'s interesting. What do you think?','I see. Could you elaborate?','That makes sense. How can I help?','Interesting! Why do you feel that way?','I\'m listening. Please continue.～'];
-                return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+                    
+                    // ‼️【重要】确保 saveChat 在添加历史记录 *之后* 调用
+                    // 并正确传递 userMsg
+                    if(config.saveToQualtrics) {
+                        saveChat(userMsg, botReply);
+                    }
+                    
+                    count++;
+                    if(count>=config.maxConversations) {
+                        addMsg('bot', 'Thank you, our conversation is complete. You will be redirected shortly.');
+                        setTimeout(()=>{
+                            // 我们也通过 postMessage 通知 Qualtrics 翻页
+                            try {
+                                window.parent.postMessage({ type: 'moveToNextPage' }, 'https://*.qualtrics.com');
+                            } catch(e) { console.error('Error sending nextPage message:', e); }
+                        }, 3000);
+                    }
+                } catch(e) {console.error('Error processing API response:',e);handleError('Error processing response');}
             }
-            
-            /**
-             * ‼️【函数已修改】
-             * 添加了 'userMessage' 参数，用于正确保存到 Qualtrics
-             */
-            function handleApiResponse(reply, userMessage) {
-                const indicator = document.getElementById('arin-typing-indicator');
-                if (indicator) indicator.remove();
+
+            // --- 6. 【修改后】的 handleError ---
+            function handleError(error) {
+                console.error('API Error:',error);
+                const indicator=document.getElementById('typing-indicator');
+                if(indicator) indicator.remove();
                 
-                addMessage('bot', reply);
+                // ‼️【简化】移除了本地代理的调试信息
+                addMsg('bot','Connection error: Unable to reach the server. Please check your network connection and try again.');
+            }
+
+            // --- 7. 你的 UI 函数 (完全保留) ---
+            function checkBlush(text) {if(text.includes('～')||text.includes('~')) triggerBlush();}
+            function triggerBlush() {avatar.classList.add('blush');setTimeout(()=>{avatar.classList.remove('blush');},2500);}
+            function addMsg(sender,content) {const div=document.createElement('div');div.className=`message ${sender}-message`;div.textContent=content;messages.appendChild(div);scrollToBottom();}
+            function scrollToBottom() {messages.scrollTop=messages.scrollHeight;}
+
+            // --- 8. 【重写】的 saveChat (使用 postMessage) ---
+            function saveChat(userMsg, botResp) {
+                // conversationHistory 变量现在是此函数外部的最新状态
                 
-                // 在机器人回复后，将机器人的消息添加到历史记录中
-                if (arinConfig.contextHistory) {
-                    conversationHistory.push({ role: 'assistant', content: reply });
-                    if (conversationHistory.length > arinConfig.maxHistoryMessages) conversationHistory.shift();
-                }
-                
-                if (reply.includes('～') && Math.random() < 0.8) triggerBlush();
-                
-                if (arinConfig.saveToQualtrics) {
-                    // ⬇️【Bug修复】现在我们有 'userMessage' 变量，可以正确保存了
-                    saveChatToQualtrics(userMessage, reply);
-                }
-            }
-            
-            function handleApiError(errorMessage) {
-                const indicator = document.getElementById('arin-typing-indicator');
-                if (indicator) indicator.remove();
-                addMessage('bot', errorMessage);
-            }
-            
-            function triggerBlush() {
-                avatar.classList.add('arin-blush');
-                setTimeout(() => { avatar.classList.remove('arin-blush'); }, 2000);
-            }
-            
-            function addMessage(sender, content) {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `arin-message arin-${sender}-message`;
-                messageDiv.textContent = content;
-                messagesContainer.appendChild(messageDiv);
-                scrollToBottom();
-            }
-            
-            function scrollToBottom() {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-            
-            /**
-             * ‼️【函数已重写】
-             * 这个函数现在使用 'postMessage' 将数据发送到父窗口 (Qualtrics)
-             * 它不再尝试调用 Qualtrics.SurveyEngine.setEmbeddedData
-             */
-            function saveChatToQualtrics(userMessage, botResponse) {
-                
-                // 'conversationHistory' 现在包含完整的聊天记录
-                // 我们创建一个字符串版本发送给 Qualtrics
+                // 格式化完整的聊天记录为字符串
                 let historyString = conversationHistory.map(msg => {
                     const prefix = msg.role === 'user' ? 'User:' : 'Arin:';
+                    // 简单清理，防止 HTML 注入
                     const content = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     return `${prefix} ${content}`;
                 }).join('\n---\n');
 
                 try {
-                    // 尝试将数据发送到父窗口 (Qualtrics 页面)
+                    // ‼️ 将数据发送回父窗口 (Qualtrics)
                     window.parent.postMessage({
                         type: 'saveToQualtrics',
-                        history: historyString,     // 发送完整的聊天记录
-                        lastResponse: botResponse   // 发送最后一条机器人的回复
-                    }, 'https://*.qualtrics.com'); // ‼️ 记得把这里换成你的 Qualtrics 域名
+                        history: historyString,
+                        lastResponse: botResp,
+                        lastUserMessage: userMsg, // 额外发送最后一条用户消息
+                        conversationCount: count + 1 // 发送当前的对话次数 (count 是 0-based)
+                    }, 'https://*.qualtrics.com'); // ‼️【重要】把这里换成你的 Qualtrics 域名
 
                 } catch (e) {
                     console.error('Error sending message to Qualtrics parent window:', e);
                 }
             }
+        }
+
+        // --- 9. 【修改后】的 Qualtrics 启动逻辑 ---
+        if(typeof Qualtrics!=='undefined') {
+            Qualtrics.SurveyEngine.addOnload(function() {
+                // ‼️【移除】不再需要从 Qualtrics 加载 'ConversationCount'
+                // iframe 每次加载都是全新的会话
+                initArinChat();
+            });
             
-            Qualtrics.SurveyEngine.addOnPageSubmit(function(type) {});
-        });
-        
-        // 你的本地测试回退 (Mock) 代码，完全保留，这对于测试很有用
+            // ‼️【移除】addOnPageSubmit 在 iframe 中无效
+            
+        } else {
+            // 本地测试逻辑 (完全保留)
+            document.addEventListener('DOMContentLoaded',initArinChat);
+        }
+
+        // -----------------------------------------------------
+        //  本地测试用的 Qualtrics 模拟器
+        // -----------------------------------------------------
         if (typeof Qualtrics === 'undefined') {
             window.Qualtrics = window.Qualtrics || {};
             window.Qualtrics.SurveyEngine = {
@@ -306,19 +329,23 @@ S                        });
                     }
                 },
                 addOnPageSubmit: function() {},
-                // postMessage 在本地测试时会报错，但我们可以忽略
-                // 这里的 set/get 只是为了让本地测试不崩溃
-                setEmbeddedData: function(k, v) { console.log(`Mock Qualtrics: Set ${k} = ${v}`); },
+                // 本地测试时，postMessage 会发给 "null"
+                // 我们可以模拟 Qualtrics 的 set/get 来在控制台查看
+                setEmbeddedData: function(k, v) { console.log(`[Mock Qualtrics]: Set ${k} = ${v}`); },
                 getEmbeddedData: function(k) { return null; }
             };
-            
-            // 模拟 Qualtrics 加载
-            setTimeout(function() {
-                if (window.Qualtrics && window.Qualtrics.SurveyEngine) {
-                    window.Qualtrics.SurveyEngine.addOnload(function() {});
+
+            // 模拟 Qualtrics 父窗口来接收 postMessage
+            window.addEventListener('message', function(event) {
+                console.log('[Mock Parent Window] Received message:', event.data);
+                if (event.data.type === 'saveToQualtrics') {
+                    Qualtrics.SurveyEngine.setEmbeddedData('ArinChatHistory', event.data.history);
+                    Qualtrics.SurveyEngine.setEmbeddedData('LastArinResponse', event.data.lastResponse);
+                    Qualtrics.SurveyEngine.setEmbeddedData('ConversationCount', event.data.conversationCount);
                 }
-            }, 100);
+            });
         }
+
     </script>
 </body>
 </html>
