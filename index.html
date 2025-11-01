@@ -16,4 +16,309 @@
         .arin-message {max-width:70%;padding:12px 16px;border-radius:18px;word-wrap:break-word;}
         .arin-user-message {background:#e3f2fd;align-self:flex-end;border-bottom-right-radius:4px;}
         .arin-bot-message {background:#f1f1f1;align-self:flex-start;border-bottom-left-radius:4px;position:relative;}
-        .arin-blush-indicator {position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#ff69b4;border-radius
+        .arin-blush-indicator {position:absolute;top:-5px;right:-5px;width:16px;height:16px;background:#ff69b4;border-radius:50%;opacity:0;animation:arin-fade-in-out 2s ease-in-out;}
+        @keyframes arin-fade-in-out {0%{opacity:0;}25%{opacity:1;}75%{opacity:1;}100%{opacity:0;}}
+        .arin-input-container {display:flex;padding:20px;gap:10px;border-top:1px solid #e0e0e0;}
+        .arin-input-field {flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:24px;outline:none;font-size:16px;}
+        .send-button {background:#4a6fa5;color:#fff;border:none;border-radius:50%;width:48px;height:48px;cursor:pointer;display:flex;justify:content:center;align-items:center;font-size:20px;transition:background 0.2s;}
+        .send-button:hover {background:#3a5a85;}
+        .arin-chat-container * {box-sizing:border-box;}
+        @media (max-width:600px){.arin-chat-container{border-radius:0;box-shadow:none;}.arin-messages{height:350px;}}
+    </style>
+</head>
+<body>
+    <div class="arin-chat-container">
+        <div class="arin-header">
+            <div class="arin-avatar-container">
+                <div class="arin-avatar" id="arin-avatar">A</div>
+            </div>
+            <div class="arin-name">Arin</div>
+        </div>
+        <div class="arin-messages" id="arin-messages"></div>
+        <div class="arin-input-container">
+            <input type="text" class="arin-input-field" id="arin-message-input" placeholder="Type a message..." autocomplete="off">
+            <button class="arin-send-button" id="arin-send-button">→</button>
+        </div>
+    </div>
+
+    <script>
+        const arinConfig = {
+            // apiMode 'direct' 将被用于调用我们的 /api/chat 代理
+            apiMode: 'direct', 
+            // ⬇️ 我们不再需要硬编码的 API Key 信息
+            // directApi: { ... } 已被移除
+            
+            // 你的模型 ID，它将在 callDirectApi 中被使用
+            model: 'bot-20251031115408-jz6th', 
+            stream: true,
+            saveToQualtrics: true,
+            contextHistory: true,
+            maxHistoryMessages: 10,
+            fallbackToMock: true
+        };
+        
+        Qualtrics.SurveyEngine.addOnload(function() {
+            var that = this;
+            
+            const messagesContainer = document.getElementById('arin-messages');
+            const messageInput = document.getElementById('arin-message-input');
+            const sendButton = document.getElementById('arin-send-button');
+            const avatar = document.getElementById('arin-avatar');
+            
+            // 这是我们的本地聊天记录存储
+            let conversationHistory = []; 
+            const systemPrompt = "你是一个友好、乐于助人的AI助手Arin。你的回答简洁明了，偶尔在句末使用波浪号(~)表达亲切感。";
+            
+            addMessage('bot', 'Hello! I am Arin, nice to meet you');
+            
+            sendButton.addEventListener('click', sendMessage);
+            messageInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') sendMessage(); });
+            messageInput.addEventListener('keydown', function(e) { e.stopPropagation(); });
+            
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                if (!message) return;
+                
+                addMessage('user', message);
+                
+                // 【重要】在调用 API 之前，先将用户的消息添加到历史记录中
+                if (arinConfig.contextHistory) {
+                    conversationHistory.push({ role: 'user', content: message });
+                    if (conversationHistory.length > arinConfig.maxHistoryMessages) conversationHistory.shift();
+                }
+                
+                messageInput.value = '';
+                
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'arin-message arin-bot-message';
+                typingIndicator.textContent = 'Typing...';
+                typingIndicator.id = 'arin-typing-indicator';
+                messagesContainer.appendChild(typingIndicator);
+                scrollToBottom();
+                
+                if (arinConfig.apiMode === 'direct') {
+                    // 我们将调用 'callDirectApi'，但它现在会指向我们的 Vercel 代理
+                    callDirectApi(message);
+                } else {
+                    useMockResponse(message);
+                }
+            }
+            
+            /**
+             * ‼️【函数已修改】
+             * 这个函数现在调用相对路径 /api/chat (我们的Vercel代理)
+             * 它不再需要任何 API 密钥。
+             */
+            function callDirectApi(message) {
+                
+                // 准备要发送给代理的数据
+                let requestData = {
+                    model: arinConfig.model,
+                    stream: arinConfig.stream,
+                    stream_options: { include_usage: true },
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        // 'conversationHistory' 已经包含了刚刚添加的最新用户消息
+                        ...conversationHistory 
+                    ]
+                };
+                
+                // ⬇️ 【关键修改】
+                fetch('/api/chat', { // 指向 Vercel 的相对路径
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData),
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('API 错误');
+                    
+                    if (arinConfig.stream) {
+                        let fullResponse = '';
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        
+                        function processStream() {
+                            reader.read().then(({ done, value }) => {
+                                if (done) {
+                                    // ⬇️【Bug修复】将 'message' (用户消息) 传递给 handleApiResponse
+                                    handleApiResponse(fullResponse || "Thank you for your message!", message);
+                                    return;
+                                }
+                                
+                                const chunk = decoder.decode(value, { stream: true });
+                                const lines = chunk.split('\n');
+                                
+                                for (const line of lines) {
+                                    if (line.startsWith('data: ')) {
+                                        const data = line.slice(6);
+                                        if (data === '[DONE]') {
+                                            handleApiResponse(fullResponse || "Thank you for your message!", message);
+                                            return;
+                                        }
+                                        try {
+                                            const parsed = JSON.parse(data);
+                                            if (parsed.choices && parsed.choices[0].delta?.content) {
+                                                fullResponse += parsed.choices[0].delta.content;
+                                            }
+                                        } catch (e) {}
+                                    }
+                                }
+                                processStream();
+                            }).catch(() => {
+                                if (arinConfig.fallbackToMock) { useMockResponse(message); } 
+                                else { handleApiError('连接失败，请稍后再试'); }
+                            });
+                        }
+                        processStream();
+                    } else {
+                        // 非流式处理
+                        return response.json().then(data => {
+                            let reply = "I understand. Can you tell me more?";
+                            if (data.choices && data.choices[0].message) {
+                                reply = data.choices[0].message.content.trim();
+                            }
+                            handleApiResponse(reply, message);
+S                        });
+                    }
+                })
+                .catch(() => {
+                    if (arinConfig.fallbackToMock) { useMockResponse(message); } 
+                    else { handleApiError('连接失败，请稍后再试'); }
+                });
+            }
+            
+            function useMockResponse(message) {
+                setTimeout(() => {
+                    const reply = getMockResponse(message);
+                    handleApiResponse(reply, message); // 确保也传递 message
+                }, 1000);
+            }
+            
+            function getMockResponse(message) {
+                // ... (你的 mock 逻辑，无需修改) ...
+                const lowerMessage = message.toLowerCase();
+                const responses = {
+                    'hello|hi|hey': ['Hello! Nice to chat!', 'Hi there! How can I help?', 'Hey! Great to talk!'],
+                    'how are you|how r u': ['I\'m doing well, thanks! How about you?', 'Great! How can I assist?', 'I\'m wonderful! How are you?'],
+                    'your name|who are you': ['I\'m Arin, here to help!', 'Arin, your friendly assistant!', 'You can call me Arin!'],
+                    'help|assist': ['Happy to help! What do you need?', 'Of course! What can I do?', 'Sure! Let me know.～'],
+                    'bye|goodbye': ['Goodbye! Nice talking to you!', 'See you later!', 'Bye! Chat anytime!'],
+                    'thank you|thanks': ['You\'re welcome!', 'No problem!', 'Very welcome!']
+                };
+                for (const [keywords, replies] of Object.entries(responses)) {
+                    if (new RegExp(keywords, 'i').test(lowerMessage)) {
+                        return replies[Math.floor(Math.random() * replies.length)];
+                    }
+                }
+                const defaultResponses = ['I understand. Can you tell me more?','That\'s interesting. What do you think?','I see. Could you elaborate?','That makes sense. How can I help?','Interesting! Why do you feel that way?','I\'m listening. Please continue.～'];
+                return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+            }
+            
+            /**
+             * ‼️【函数已修改】
+             * 添加了 'userMessage' 参数，用于正确保存到 Qualtrics
+             */
+            function handleApiResponse(reply, userMessage) {
+                const indicator = document.getElementById('arin-typing-indicator');
+                if (indicator) indicator.remove();
+                
+                addMessage('bot', reply);
+                
+                // 在机器人回复后，将机器人的消息添加到历史记录中
+                if (arinConfig.contextHistory) {
+                    conversationHistory.push({ role: 'assistant', content: reply });
+                    if (conversationHistory.length > arinConfig.maxHistoryMessages) conversationHistory.shift();
+                }
+                
+                if (reply.includes('～') && Math.random() < 0.8) triggerBlush();
+                
+                if (arinConfig.saveToQualtrics) {
+                    // ⬇️【Bug修复】现在我们有 'userMessage' 变量，可以正确保存了
+                    saveChatToQualtrics(userMessage, reply);
+                }
+            }
+            
+            function handleApiError(errorMessage) {
+                const indicator = document.getElementById('arin-typing-indicator');
+                if (indicator) indicator.remove();
+                addMessage('bot', errorMessage);
+            }
+            
+            function triggerBlush() {
+                avatar.classList.add('arin-blush');
+                setTimeout(() => { avatar.classList.remove('arin-blush'); }, 2000);
+            }
+            
+            function addMessage(sender, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `arin-message arin-${sender}-message`;
+                messageDiv.textContent = content;
+                messagesContainer.appendChild(messageDiv);
+                scrollToBottom();
+            }
+            
+            function scrollToBottom() {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            
+            /**
+             * ‼️【函数已重写】
+             * 这个函数现在使用 'postMessage' 将数据发送到父窗口 (Qualtrics)
+             * 它不再尝试调用 Qualtrics.SurveyEngine.setEmbeddedData
+             */
+            function saveChatToQualtrics(userMessage, botResponse) {
+                
+                // 'conversationHistory' 现在包含完整的聊天记录
+                // 我们创建一个字符串版本发送给 Qualtrics
+                let historyString = conversationHistory.map(msg => {
+                    const prefix = msg.role === 'user' ? 'User:' : 'Arin:';
+                    const content = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    return `${prefix} ${content}`;
+                }).join('\n---\n');
+
+                try {
+                    // 尝试将数据发送到父窗口 (Qualtrics 页面)
+                    window.parent.postMessage({
+                        type: 'saveToQualtrics',
+                        history: historyString,     // 发送完整的聊天记录
+                        lastResponse: botResponse   // 发送最后一条机器人的回复
+                    }, 'https://*.qualtrics.com'); // ‼️ 记得把这里换成你的 Qualtrics 域名
+
+                } catch (e) {
+                    console.error('Error sending message to Qualtrics parent window:', e);
+                }
+            }
+            
+            Qualtrics.SurveyEngine.addOnPageSubmit(function(type) {});
+        });
+        
+        // 你的本地测试回退 (Mock) 代码，完全保留，这对于测试很有用
+        if (typeof Qualtrics === 'undefined') {
+            window.Qualtrics = window.Qualtrics || {};
+            window.Qualtrics.SurveyEngine = {
+                addOnload: function(callback) {
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', callback.bind({}));
+                    } else {
+                        callback.bind({})();
+                    }
+                },
+                addOnPageSubmit: function() {},
+                // postMessage 在本地测试时会报错，但我们可以忽略
+                // 这里的 set/get 只是为了让本地测试不崩溃
+                setEmbeddedData: function(k, v) { console.log(`Mock Qualtrics: Set ${k} = ${v}`); },
+                getEmbeddedData: function(k) { return null; }
+            };
+            
+            // 模拟 Qualtrics 加载
+            setTimeout(function() {
+                if (window.Qualtrics && window.Qualtrics.SurveyEngine) {
+                    window.Qualtrics.SurveyEngine.addOnload(function() {});
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>
