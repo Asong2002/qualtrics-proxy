@@ -1,0 +1,21 @@
+{
+  "name": "arin-chat-bot",
+  "version": "1.0.0",
+  "description": "Arin AI Chat Bot deployed on Vercel",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step needed for static site'",
+    "start": "npx serve ."
+  },
+  "dependencies": {
+    "next": "^14.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^34.0.0",
+    "serve": "^14.0.0"
+  },
+  "keywords": ["chatbot", "ai", "vercel", "edge-function"],
+  "author": "Your Name",
+  "license": "MIT"
+}
