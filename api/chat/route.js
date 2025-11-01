@@ -19,11 +19,12 @@ export async function POST(request) {
             origin: origin
         });
 
+        // 调用火山方舟 API
         const volcanoResponse = await fetch(VOLCANO_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.VOLCANO_API_KEY}`,
+                'Authorization': `Bearer ${process.env.VOLCANO_API_KEY || process.env.ARK_API_KEY}`,
                 'Accept': 'text/event-stream',
             },
             body: JSON.stringify(frontendRequestBody),
