@@ -49,29 +49,21 @@
     <script>
         // --- 1. 新的 Vercel 配置 ---
         const config={
-            // ‼️ 确保这个模型 ID 和你 api/chat.js 里的一致
             model: 'bot-20251031115408-jz6th', 
             stream: true,
             saveToQualtrics: true,
             maxConversations: 10,
-            
-            // 你的 enableInternationalSupport 逻辑现在由 fallbackToMock 控制
-            fallbackToMock: false, // 设为 false，这样 API 失败时会显示错误
-            
-            // 你的 webServiceId 和 IP 地址不再需要
+            fallbackToMock: false,
         };
 
         function initArinChat() {
             const messages=document.getElementById('messages'),input=document.getElementById('message-input'),btn=document.getElementById('send-button'),avatar=document.getElementById('avatar');
             let count=0;
-            
-            // 用于 Vercel 方案的聊天记录
             let conversationHistory = []; 
             const systemPrompt = "你是一个友好、乐于助人的AI助手Arin。你的回答简洁明了，偶尔在句末使用波浪号(~)表达亲切感。";
 
             addMsg('bot','Hello! I am Arin, nice to meet you');
             
-            // 这部分 Qualtrics 逻辑完全保留
             if(typeof Qualtrics!=='undefined'&&typeof Qualtrics.SurveyEngine!=='undefined') {
                 Qualtrics.SurveyEngine.addOnload(function() {
                     try {
@@ -86,15 +78,11 @@
             btn.addEventListener('click',sendMsg);
             input.addEventListener('keypress',function(e) {if(e.key==='Enter') sendMsg();});
 
-            // --- 2. 修改后的 sendMsg ---
             function sendMsg() {
                 const msg=input.value.trim();
                 if(!msg) return;
-
                 addMsg('user',msg);
                 input.value='';
-
-                // 将用户消息添加到历史记录
                 conversationHistory.push({ role: 'user', content: msg });
                 
                 const typing=document.createElement('div');
@@ -104,28 +92,20 @@
                 messages.appendChild(typing);
                 scrollToBottom();
                 
-                // ‼️【移除】不再需要 setEmbeddedData('UserMessage', msg)
-                
-                // ‼️【简化】删除了 switch 语句和 checkProxy
-                // 我们现在总是调用 Vercel 代理
                 callVercelProxy(msg, conversationHistory);
             }
             
-            // --- 3. 【全新】的 callVercelProxy 函数 (支持流式响应) ---
             function callVercelProxy(userMsg, history) {
-                
                 let requestData = {
                     model: config.model,
                     stream: config.stream,
                     stream_options: { include_usage: true },
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...history 
-                    ]
+                    messages: [ { role: 'system', content: systemPrompt }, ...history ]
                 };
 
-                fetch('/api/chat', { // 指向 Vercel 代理的相对路径
+                fetch('/api/chat', { 
                     method: 'POST',
+                    cache: 'no-store',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData),
                 })
@@ -154,12 +134,24 @@
                                             handleResponse(fullResponse || "Thank you for your message!", userMsg);
                                             return;
                                         }
+
+                                        // ⬇️ ‼️‼️‼️ 【关键的调试代码】 ‼️‼️‼️
                                         try {
+                                            // 1. 打印 API 返回的【每一条】原始数据
+                                            console.log("RAW API DATA CHUNK:", data); 
+                                            
                                             const parsed = JSON.parse(data);
                                             if (parsed.choices && parsed.choices[0].delta?.content) {
                                                 fullResponse += parsed.choices[0].delta.content;
+                                            } else {
+                                                // 2. 如果数据不是我们想要的格式，也打印出来
+                                                console.warn("Unrecognized (but valid) JSON chunk:", parsed);
                                             }
-                                        } catch (e) {}
+                                        } catch (e) {
+                                            // 3. 如果 JSON 解析失败，打印错误
+                                            console.error("Failed to parse JSON chunk:", data, e);
+                                        }
+                                        // ⬆️ ‼️‼️‼️ 【调试代码结束】 ‼️‼️‼️
                                     }
                                 }
                                 processStream();
@@ -171,8 +163,6 @@
                         }
                         processStream();
                     } else {
-                        // Vercel 代理也支持非流式，但代码会返回流，所以这里理论上不会执行
-                        // 但以防万一，我们保留一个非流式处理
                         return response.json().then(data => {
                             let reply = "I understand.";
                             if (data.choices && data.choices[0].message) {
@@ -189,135 +179,87 @@
                 });
             }
 
-            // --- 4. 你的 Mock 函数 (完全保留) ---
             function useMock(msg) {
                 setTimeout(()=>{
                     const reply=getMockReply(msg);
-                    // ‼️【修改】确保 handleResponse 的参数正确
                     handleResponse(reply, msg); 
                 }, 1000);
             }
 
             function getMockReply(msg) {
-                const lower=msg.toLowerCase(),responses={
-                    'hello|hi|hey':['Hello!','Hi there!'],
-                    'how are you|how r u':['I\'m doing well! How about you?','I\'m great!'],
-                    'your name|who are you':['I\'m Arin!','My name is Arin!'],
-                    'help|assist':['I\'d be happy to help! What do you need?～','Sure thing! Just let me know!～'],
-                    'bye|goodbye':['Goodbye!','See you later!'],
-                    'thank you|thanks':['You\'re welcome!','No problem!']
-                };
-                
+                const lower=msg.toLowerCase(),responses={ 'hello|hi|hey':['Hello!','Hi there!'], 'how are you|how r u':['I\'m doing well! How about you?','I\'m great!'], 'your name|who are you':['I\'m Arin!','My name is Arin!'], 'help|assist':['I\'d be happy to help! What do you need?～','Sure thing! Just let me know!～'], 'bye|goodbye':['Goodbye!','See you later!'], 'thank you|thanks':['You\'re welcome!','No problem!'] };
                 for(const[keywords,replies]of Object.entries(responses)) {
-                    const regex=new RegExp(keywords,'i');
-                    if(regex.test(lower)) return replies[Math.floor(Math.random()*replies.length)];
+                    if(new RegExp(keywords,'i').test(lower)) return replies[Math.floor(Math.random()*replies.length)];
                 }
-                
                 const defaultReplies=['I understand. Can you tell me more?～','How can I help with this?～','I see. Could you elaborate?～'];
                 return defaultReplies[Math.floor(Math.random()*defaultReplies.length)];
             }
 
-            // --- 5. 【修改后】的 handleResponse ---
             function handleResponse(botReply, userMsg) {
                 try {
                     const indicator=document.getElementById('typing-indicator');
                     if(indicator) indicator.remove();
-
-                    // ‼️【简化】不再需要 JSON.parse(response) 或检查 data.success
-                    // botReply 现在就是纯文本回复
-                    
-                    // ‼️【移除】不再需要 setEmbeddedData('ArinResponse', reply)
-
                     addMsg('bot', botReply);
                     checkBlush(botReply);
-                    
-                    // 将机器人回复添加到历史记录
                     conversationHistory.push({ role: 'assistant', content: botReply });
                     if (conversationHistory.length > config.maxHistoryMessages * 2) {
                         conversationHistory = conversationHistory.slice(-config.maxHistoryMessages * 2);
                     }
-                    
-                    // ‼️【重要】确保 saveChat 在添加历史记录 *之后* 调用
-                    // 并正确传递 userMsg
                     if(config.saveToQualtrics) {
                         saveChat(userMsg, botReply);
                     }
-                    
                     count++;
                     if(count>=config.maxConversations) {
                         addMsg('bot', 'Thank you, our conversation is complete. You will be redirected shortly.');
                         setTimeout(()=>{
-                            // 我们也通过 postMessage 通知 Qualtrics 翻页
                             try {
-                                window.parent.postMessage({ type: 'moveToNextPage' }, 'https://*.qualtrics.com');
+                                window.parent.postMessage({ type: 'moveToNextPage' }, 'https://lse.eu.qualtrics.com');
                             } catch(e) { console.error('Error sending nextPage message:', e); }
                         }, 3000);
                     }
                 } catch(e) {console.error('Error processing API response:',e);handleError('Error processing response');}
             }
 
-            // --- 6. 【修改后】的 handleError ---
             function handleError(error) {
                 console.error('API Error:',error);
                 const indicator=document.getElementById('typing-indicator');
                 if(indicator) indicator.remove();
-                
-                // ‼️【简化】移除了本地代理的调试信息
                 addMsg('bot','Connection error: Unable to reach the server. Please check your network connection and try again.');
             }
 
-            // --- 7. 你的 UI 函数 (完全保留) ---
             function checkBlush(text) {if(text.includes('～')||text.includes('~')) triggerBlush();}
             function triggerBlush() {avatar.classList.add('blush');setTimeout(()=>{avatar.classList.remove('blush');},2500);}
             function addMsg(sender,content) {const div=document.createElement('div');div.className=`message ${sender}-message`;div.textContent=content;messages.appendChild(div);scrollToBottom();}
             function scrollToBottom() {messages.scrollTop=messages.scrollHeight;}
 
-            // --- 8. 【重写】的 saveChat (使用 postMessage) ---
             function saveChat(userMsg, botResp) {
-                // conversationHistory 变量现在是此函数外部的最新状态
-                
-                // 格式化完整的聊天记录为字符串
                 let historyString = conversationHistory.map(msg => {
                     const prefix = msg.role === 'user' ? 'User:' : 'Arin:';
-                    // 简单清理，防止 HTML 注入
                     const content = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     return `${prefix} ${content}`;
                 }).join('\n---\n');
-
                 try {
-                    // ‼️ 将数据发送回父窗口 (Qualtrics)
                     window.parent.postMessage({
                         type: 'saveToQualtrics',
                         history: historyString,
                         lastResponse: botResp,
-                        lastUserMessage: userMsg, // 额外发送最后一条用户消息
-                        conversationCount: count + 1 // 发送当前的对话次数 (count 是 0-based)
-                    }, 'https://*.qualtrics.com'); // ‼️【重要】把这里换成你的 Qualtrics 域名
-
+                        lastUserMessage: userMsg, 
+                        conversationCount: count + 1 
+                    }, 'https://lse.eu.qualtrics.com');
                 } catch (e) {
                     console.error('Error sending message to Qualtrics parent window:', e);
                 }
             }
         }
 
-        // --- 9. 【修改后】的 Qualtrics 启动逻辑 ---
         if(typeof Qualtrics!=='undefined') {
             Qualtrics.SurveyEngine.addOnload(function() {
-                // ‼️【移除】不再需要从 Qualtrics 加载 'ConversationCount'
-                // iframe 每次加载都是全新的会话
                 initArinChat();
             });
-            
-            // ‼️【移除】addOnPageSubmit 在 iframe 中无效
-            
         } else {
-            // 本地测试逻辑 (完全保留)
             document.addEventListener('DOMContentLoaded',initArinChat);
         }
 
-        // -----------------------------------------------------
-        //  本地测试用的 Qualtrics 模拟器
-        // -----------------------------------------------------
         if (typeof Qualtrics === 'undefined') {
             window.Qualtrics = window.Qualtrics || {};
             window.Qualtrics.SurveyEngine = {
@@ -329,23 +271,21 @@
                     }
                 },
                 addOnPageSubmit: function() {},
-                // 本地测试时，postMessage 会发给 "null"
-                // 我们可以模拟 Qualtrics 的 set/get 来在控制台查看
                 setEmbeddedData: function(k, v) { console.log(`[Mock Qualtrics]: Set ${k} = ${v}`); },
                 getEmbeddedData: function(k) { return null; }
             };
 
-            // 模拟 Qualtrics 父窗口来接收 postMessage
             window.addEventListener('message', function(event) {
                 console.log('[Mock Parent Window] Received message:', event.data);
                 if (event.data.type === 'saveToQualtrics') {
                     Qualtrics.SurveyEngine.setEmbeddedData('ArinChatHistory', event.data.history);
                     Qualtrics.SurveyEngine.setEmbeddedData('LastArinResponse', event.data.lastResponse);
                     Qualtrics.SurveyEngine.setEmbeddedData('ConversationCount', event.data.conversationCount);
+                } else if (event.data.type === 'moveToNextPage') {
+                    console.log('[Mock Parent Window] Received moveToNextPage command!');
                 }
             });
         }
-
     </script>
 </body>
 </html>
