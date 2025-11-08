@@ -7,11 +7,10 @@
     "dev": "vercel dev",
     "build": "echo 'No build step needed'",
     "start": "vercel dev",
-    "deploy": "vercel deploy --prod"  
+    "deploy": "vercel deploy --prod"
   },
   "dependencies": {
-    
-    "itty-router": "^4.0.23" 
+    "itty-router": "^4.0.23"
   },
   "devDependencies": {
     "vercel": "^34.0.0"
