@@ -19,7 +19,7 @@ export async function POST() {
     return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Access-Control-Allow-Origin': '你的前端域名' // 替换为实际前端域名
+        'Access-Control-Allow-Origin': 'qualtrics-proxy-brie.vercel.app' // 替换为实际前端域名
       }
     });
   } catch (e) {
@@ -30,7 +30,7 @@ export async function POST() {
 export function OPTIONS() {
   return new Response(null, {
     headers: {
-      'Access-Control-Allow-Origin': '你的前端域名',
+      'Access-Control-Allow-Origin': 'qualtrics-proxy-brie.vercel.app',
       'Access-Control-Allow-Methods': 'POST, OPTIONS'
     }
   });
