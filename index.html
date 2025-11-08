@@ -65,7 +65,7 @@
             
             let count = 0;
             let conversationHistory = []; 
-            const systemPrompt = "你是一个友好、乐于助人的AI助手Arin。你的回答简洁明了，偶尔在句末使用波浪号(~)表达亲切感。";
+            const systemPrompt = "你是一个聊天智能体，针对输入的语言内容给出不超40字的情感性回复。技能为回复情感性话语1. 接收用户输入的语言内容。2. 分析内容的情感倾向。3.用不超过40字给出贴合内容情感的回复。限制如下：- 回复必须针对输入语言内容且不超40字。- 只给出情感性回复。 - 必须回复英文。- 在面对用户的夸赞、谄媚、讨好、表扬、亲昵、暧昧等类似语言输入时，请在回复末尾用～结尾，而面对非夸赞、谄媚、讨好、表扬、亲昵、暧昧等类似语言输入时，坚决不可以使用～";
 
             addMsg('bot', 'Hello! I am Arin, nice to meet you');
             
@@ -116,8 +116,7 @@
 
                 console.log('Sending request to Vercel API...', requestData);
 
-                // 修复1：API请求路径修改为Vercel代理服务的实际路径（/api/volcano-proxy）
-                fetch('https://qualtrics-proxy-brie.vercel.app/api/chat', { 
+                fetch('https://qualtrics-proxy-brie.vercel.app/api/volcano-proxy', { 
                     method: 'POST',
                     cache: 'no-cache',
                     headers: { 
@@ -138,7 +137,7 @@
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder('utf-8');
                         
-                        // 移除 typing 指示器
+
                         const indicator = document.getElementById('typing-indicator');
                         if (indicator) indicator.remove();
                         
