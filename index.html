@@ -62,13 +62,13 @@
                   input = document.getElementById('message-input'),
                   btn = document.getElementById('send-button'),
                   avatar = document.getElementById('avatar');
-            
+           
             let count = 0;
             let conversationHistory = []; 
             const systemPrompt = "你是一个聊天智能体，针对输入的语言内容给出不超40字的情感性回复。技能为回复情感性话语1. 接收用户输入的语言内容。2. 分析内容的情感倾向。3.用不超过40字给出贴合内容情感的回复。限制如下：- 回复必须针对输入语言内容且不超40字。- 只给出情感性回复。 - 必须回复英文。- 在面对用户的夸赞、谄媚、讨好、表扬、亲昵、暧昧等类似语言输入时，请在回复末尾用～结尾，而面对非夸赞、谄媚、讨好、表扬、亲昵、暧昧等类似语言输入时，坚决不可以使用～";
 
             addMsg('bot', 'Hello! I am Arin, nice to meet you');
-            
+           
             // Qualtrics 集成
             if (typeof Qualtrics !== 'undefined' && typeof Qualtrics.SurveyEngine !== 'undefined') {
                 Qualtrics.SurveyEngine.addOnload(function() {
@@ -82,7 +82,7 @@
                     }
                 });
             }
-            
+           
             btn.addEventListener('click', sendMsg);
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') sendMsg();
@@ -91,21 +91,21 @@
             function sendMsg() {
                 const msg = input.value.trim();
                 if (!msg) return;
-                
+               
                 addMsg('user', msg);
                 input.value = '';
                 conversationHistory.push({ role: 'user', content: msg });
-                
+               
                 const typing = document.createElement('div');
                 typing.className = 'message bot-message';
                 typing.textContent = 'Typing...';
                 typing.id = 'typing-indicator';
                 messages.appendChild(typing);
                 scrollToBottom();
-                
+               
                 callVercelProxy(msg, conversationHistory);
             }
-            
+           
             function callVercelProxy(userMsg, history) {
                 let requestData = {
                     model: config.model,
@@ -116,6 +116,7 @@
 
                 console.log('Sending request to Vercel API...', requestData);
 
+                // 路径已按你的要求更新
                 fetch('https://qualtrics-proxy-brie.vercel.app/api/volcano-proxy', { 
                     method: 'POST',
                     cache: 'no-cache',
@@ -127,26 +128,25 @@
                 .then(response => {
                     console.log('API Response status:', response.status);
                     console.log('API Response headers:', response.headers);
-                    
+                   
                     if (!response.ok) {
                         throw new Error(`API error: ${response.status} ${response.statusText}`);
                     }
-                    
+                   
                     if (config.stream) {
                         let fullResponse = '';
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder('utf-8');
-                        
-
+                       
                         const indicator = document.getElementById('typing-indicator');
                         if (indicator) indicator.remove();
-                        
+                       
                         // 创建新的消息容器用于流式显示
                         const streamMessage = document.createElement('div');
                         streamMessage.className = 'message bot-message';
                         streamMessage.id = 'streaming-message';
                         messages.appendChild(streamMessage);
-                        
+                       
                         function processStream() {
                             reader.read().then(({ done, value }) => {
                                 if (done) {
@@ -154,17 +154,16 @@
                                     handleStreamComplete(fullResponse, userMsg);
                                     return;
                                 }
-                                
+                               
                                 const chunk = decoder.decode(value, { stream: true });
                                 const lines = chunk.split('\n');
-                                
+                               
                                 for (const line of lines) {
-                                    // 修复2：过滤空行和SSE注释行（以:开头）
                                     const trimmedLine = line.trim();
                                     if (trimmedLine === '' || trimmedLine.startsWith(':')) {
                                         continue;
                                     }
-                                    
+                                   
                                     if (trimmedLine.startsWith('data: ')) {
                                         const data = trimmedLine.slice(6);
                                         if (data === '[DONE]') {
@@ -182,7 +181,6 @@
                                                 scrollToBottom();
                                             }
                                         } catch (e) {
-                                            // 修复3：处理不完整JSON块，不中断流（等待后续数据）
                                             console.warn('Incomplete JSON chunk, continuing:', data);
                                         }
                                     }
@@ -216,13 +214,15 @@
                 });
             }
 
+            // --- [FIX 1 START]: 修复流式响应导致的消息重复 ---
+            // handleStreamComplete 现在只负责调用 handleResponse
+            // handleResponse 将统一处理所有响应（流式、非流式、Mock）
+            
             function handleStreamComplete(fullResponse, userMsg) {
-                const streamMessage = document.getElementById('streaming-message');
-                if (streamMessage) {
-                    streamMessage.id = ''; // 移除 ID
-                }
+                // 不再操作 DOM，只把最终结果交给 handleResponse
                 handleResponse(fullResponse || "Thank you for your message!", userMsg);
             }
+            // --- [FIX 1 END] ---
 
             function handleStreamError(userMsg, error) {
                 const streamMessage = document.getElementById('streaming-message');
@@ -253,13 +253,13 @@
                     'bye|goodbye': ['Goodbye!', 'See you later!'],
                     'thank you|thanks': ['You\'re welcome!', 'No problem!']
                 };
-                
+               
                 for (const [keywords, replies] of Object.entries(responses)) {
                     if (new RegExp(keywords, 'i').test(lower)) {
                         return replies[Math.floor(Math.random() * replies.length)];
                     }
                 }
-                
+               
                 const defaultReplies = [
                     'I understand. Can you tell me more?～',
                     'How can I help with this?～',
@@ -268,31 +268,49 @@
                 return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
             }
 
+            // --- [FIX 1 START]: 修复流式响应导致的消息重复 ---
+            // handleResponse 现在是处理所有响应的唯一入口
+            
             function handleResponse(botReply, userMsg) {
                 try {
                     const indicator = document.getElementById('typing-indicator');
                     if (indicator) indicator.remove();
-                    
-                    // 确保消息只添加一次
+                   
+                    // 检查流式消息 div 是否存在
                     const existingStreamMessage = document.getElementById('streaming-message');
-                    if (!existingStreamMessage) {
+                    
+                    if (existingStreamMessage) {
+                        // 如果存在，说明是流式响应
+                        // 1. 确保内容是最终内容
+                        existingStreamMessage.textContent = botReply;
+                        // 2. 移除ID，将其变为普通消息，防止下次被误用
+                        existingStreamMessage.id = ''; 
+                    } else {
+                        // 如果不存在（非流式或Mock），则添加新消息
                         addMsg('bot', botReply);
                     }
+                   
+                    // --- 以下是所有响应类型共享的逻辑 ---
                     
                     checkBlush(botReply);
                     conversationHistory.push({ role: 'assistant', content: botReply });
-                    
+                   
                     // 限制历史记录长度
                     if (conversationHistory.length > config.maxHistoryMessages * 2) {
                         conversationHistory = conversationHistory.slice(-config.maxHistoryMessages * 2);
                     }
-                    
+                   
                     if (config.saveToQualtrics) {
                         saveChat(userMsg, botReply);
                     }
-                    
+                   
                     count++;
                     if (count >= config.maxConversations) {
+                        // 禁用输入
+                        input.disabled = true;
+                        btn.disabled = true;
+                        input.placeholder = 'Conversation is complete.';
+                        
                         addMsg('bot', 'Thank you, our conversation is complete. You will be redirected shortly.');
                         setTimeout(() => {
                             try {
@@ -307,15 +325,16 @@
                     handleError('Error processing response');
                 }
             }
+            // --- [FIX 1 END] ---
 
             function handleError(error) {
                 console.error('API Error:', error);
                 const indicator = document.getElementById('typing-indicator');
                 if (indicator) indicator.remove();
-                
+               
                 const streamMessage = document.getElementById('streaming-message');
                 if (streamMessage) streamMessage.remove();
-                
+               
                 addMsg('bot', 'Connection error: Unable to reach the server. Please check your network connection and try again.');
             }
 
@@ -348,7 +367,7 @@
                     const content = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     return `${prefix} ${content}`;
                 }).join('\n---\n');
-                
+               
                 try {
                     window.parent.postMessage({
                         type: 'saveToQualtrics',
@@ -377,11 +396,14 @@
             window.Qualtrics = window.Qualtrics || {};
             window.Qualtrics.SurveyEngine = {
                 addOnload: function(callback) {
+                    // --- [FIX 2 START]: 清理本地测试代码 ---
+                    // 移除了不必要的 .bind({})
                     if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', callback.bind({}));
+                        document.addEventListener('DOMContentLoaded', callback);
                     } else {
-                        callback.bind({})();
+                        callback();
                     }
+                    // --- [FIX 2 END] ---
                 },
                 addOnPageSubmit: function() {},
                 setEmbeddedData: function(k, v) {
