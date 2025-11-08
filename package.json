@@ -7,11 +7,11 @@
     "dev": "vercel dev",
     "build": "echo 'No build step needed'",
     "start": "vercel dev",
-    "deploy": "vercel deploy --prod"  // 新增部署命令，一键部署到生产环境
+    "deploy": "vercel deploy --prod"  
   },
   "dependencies": {
-    // 补充Edge Functions可能需要的基础依赖（根据实际功能添加）
-    "itty-router": "^4.0.23"  // 轻量路由库，适合Edge环境处理请求
+    
+    "itty-router": "^4.0.23" 
   },
   "devDependencies": {
     "vercel": "^34.0.0"
