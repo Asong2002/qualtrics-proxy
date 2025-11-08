@@ -1,94 +1,37 @@
-// 火山方舟API代理服务（全域名开放精简版）
-const VOLCANO_API_URL = 'https://ark.cn-beijing.volces.com/api/v3/bots/chat/completions';
-
+// api/volcano-proxy.js
 export const runtime = 'edge';
 
-// 统一的CORS头
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-};
-
-export async function POST(request) {
+export async function POST() {
   try {
-    const frontendRequestBody = await request.json();
-    
-    // 参数验证
-    if (!frontendRequestBody.messages || !Array.isArray(frontendRequestBody.messages)) {
-      return new Response(JSON.stringify({ error: 'Missing "messages" parameter' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    const apiKey = process.env.VOLCANO_API_KEY;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API Key not configured' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // 调用火山API
-    const volcanoResponse = await fetch(VOLCANO_API_URL, {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/bots/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ec95726d-d7f2-4e8c-92ba-88927fcd8cca',
-        'Accept': 'text/event-stream',
+        'Authorization': 'Bearer ec95726d-d7f2-4e8c-92ba-88927fcd8cca' // 硬编码新密钥
       },
       body: JSON.stringify({
-        model: frontendRequestBody.model || 'bot-20251031115408-jz6th',
-        stream: frontendRequestBody.stream ?? true,
-        stream_options: frontendRequestBody.stream_options || { include_usage: true },
-        messages: frontendRequestBody.messages,
-      }),
+        model: 'bot-20251031115408-jz6th',
+        stream: true,
+        messages: [{ role: 'user', content: '简化测试' }]
+      })
     });
 
-    if (!volcanoResponse.ok) {
-      const errorText = await volcanoResponse.text();
-      return new Response(JSON.stringify({
-        error: 'API request failed',
-        status: volcanoResponse.status,
-        details: errorText
-      }), {
-        status: volcanoResponse.status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // 透传流式响应
-    return new Response(volcanoResponse.body, {
+    return new Response(response.body, {
       headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
+        'Content-Type': 'text/event-stream',
+        'Access-Control-Allow-Origin': '你的前端域名' // 替换为实际前端域名
       }
     });
-
-  } catch (error) {
-    return new Response(JSON.stringify({
-      error: 'Server error',
-      details: error.message
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
   }
 }
 
-export async function OPTIONS() {
-  return new Response(null, { headers: corsHeaders });
-}
-
-export async function GET() {
-  return new Response(JSON.stringify({
-    status: 'running',
-    message: 'Volcano API Proxy - CORS enabled for all domains',
-    timestamp: new Date().toISOString()
-  }), {
-    headers: { 'Content-Type': 'application/json', ...corsHeaders }
+export function OPTIONS() {
+  return new Response(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '你的前端域名',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    }
   });
 }
