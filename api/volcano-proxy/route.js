@@ -49,7 +49,7 @@ export async function POST(request) {
 
     // 5. 如果一切正常，将流式响应转发给前端
     // (注意：因为是同源，CORS 头不是必需的，但保留也无害)
-    const allowedOrigin = process.env.FRONTEND_DOMAIN || 'https://qualtrics-proxy-brie.vercel.app';
+    const allowedOrigin = process.env.FRONTEND_DOMAIN || 'https://qualtrics-proxy-brie1.vercel.app';
     
     return new Response(volcanoResponse.body, {
       status: 200, // 明确设置 200 OK
@@ -73,7 +73,7 @@ export async function POST(request) {
 
 // OPTIONS 函数对于同源请求不是必需的，但保留它以防万一
 export function OPTIONS() {
-  const allowedOrigin = process.env.FRONTEND_DOMAIN || 'https://qualtrics-proxy-brie.vercel.app';
+  const allowedOrigin = process.env.FRONTEND_DOMAIN || 'https://qualtrics-proxy-brie1.vercel.app';
   return new Response(null, {
     status: 204, // No Content
     headers: {
