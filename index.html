@@ -117,7 +117,7 @@
                 console.log('Sending request to Vercel API...', requestData);
 
                 // 修复1：API请求路径修改为Vercel代理服务的实际路径（/api/volcano-proxy）
-                fetch('/api/volcano-proxy', { 
+                fetch('https://qualtrics-proxy-brie.vercel.app/api/volcano-proxy', { 
                     method: 'POST',
                     cache: 'no-cache',
                     headers: { 
