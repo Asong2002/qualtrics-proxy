@@ -35,7 +35,7 @@ export async function POST(request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': 'Bearer ec95726d-d7f2-4e8c-92ba-88927fcd8cca',
         'Accept': 'text/event-stream',
       },
       body: JSON.stringify({
