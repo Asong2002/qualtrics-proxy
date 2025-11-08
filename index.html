@@ -57,6 +57,10 @@
             maxHistoryMessages: 20
         };
 
+        // [!!!] 这一行是唯一关键的修改，确保它指向你的后端文件
+        const API_ENDPOINT = 'https://qualtrics-proxy-brie.vercel.app/api/volcano-proxy';
+
+
         function initArinChat() {
             const messages = document.getElementById('messages'),
                   input = document.getElementById('message-input'),
@@ -69,7 +73,7 @@
 
             addMsg('bot', 'Hello! I am Arin, nice to meet you');
            
-            // Qualtrics 集成
+            // Qualtrics 集成 (如果你的前端在 Vercel, 这段 Qualtrics 代码其实不会运行)
             if (typeof Qualtrics !== 'undefined' && typeof Qualtrics.SurveyEngine !== 'undefined') {
                 Qualtrics.SurveyEngine.addOnload(function() {
                     try {
@@ -116,8 +120,8 @@
 
                 console.log('Sending request to Vercel API...', requestData);
 
-                // 路径已按你的要求更新
-                fetch('https://qualtrics-proxy-brie.vercel.app/api/volcano-proxy', { 
+                // *** 使用我们定义的 API_ENDPOINT 变量 ***
+                fetch(API_ENDPOINT, { 
                     method: 'POST',
                     cache: 'no-cache',
                     headers: { 
@@ -127,10 +131,16 @@
                 })
                 .then(response => {
                     console.log('API Response status:', response.status);
-                    console.log('API Response headers:', response.headers);
                    
                     if (!response.ok) {
-                        throw new Error(`API error: ${response.status} ${response.statusText}`);
+                        // 如果后端（或火山）出错，尝试读取错误信息
+                        return response.json().then(errorData => {
+                            console.error('Parsed error from server:', errorData);
+                            throw new Error(`API error: ${response.status} ${response.statusText}. Details: ${errorData.error}`);
+                        }).catch(() => {
+                            // 如果错误信息不是 JSON，就抛出通用错误
+                            throw new Error(`API error: ${response.status} ${response.statusText}`);
+                        });
                     }
                    
                     if (config.stream) {
@@ -141,7 +151,6 @@
                         const indicator = document.getElementById('typing-indicator');
                         if (indicator) indicator.remove();
                        
-                        // 创建新的消息容器用于流式显示
                         const streamMessage = document.createElement('div');
                         streamMessage.className = 'message bot-message';
                         streamMessage.id = 'streaming-message';
@@ -209,20 +218,15 @@
                         console.log('Falling back to mock response');
                         useMock(userMsg);
                     } else {
+                        // 向用户显示更具体的错误
                         handleError('Connection failed: ' + e.message);
                     }
                 });
             }
-
-            // --- [FIX 1 START]: 修复流式响应导致的消息重复 ---
-            // handleStreamComplete 现在只负责调用 handleResponse
-            // handleResponse 将统一处理所有响应（流式、非流式、Mock）
             
             function handleStreamComplete(fullResponse, userMsg) {
-                // 不再操作 DOM，只把最终结果交给 handleResponse
                 handleResponse(fullResponse || "Thank you for your message!", userMsg);
             }
-            // --- [FIX 1 END] ---
 
             function handleStreamError(userMsg, error) {
                 const streamMessage = document.getElementById('streaming-message');
@@ -267,35 +271,24 @@
                 ];
                 return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
             }
-
-            // --- [FIX 1 START]: 修复流式响应导致的消息重复 ---
-            // handleResponse 现在是处理所有响应的唯一入口
             
             function handleResponse(botReply, userMsg) {
                 try {
                     const indicator = document.getElementById('typing-indicator');
                     if (indicator) indicator.remove();
                    
-                    // 检查流式消息 div 是否存在
                     const existingStreamMessage = document.getElementById('streaming-message');
                     
                     if (existingStreamMessage) {
-                        // 如果存在，说明是流式响应
-                        // 1. 确保内容是最终内容
                         existingStreamMessage.textContent = botReply;
-                        // 2. 移除ID，将其变为普通消息，防止下次被误用
                         existingStreamMessage.id = ''; 
                     } else {
-                        // 如果不存在（非流式或Mock），则添加新消息
                         addMsg('bot', botReply);
                     }
                    
-                    // --- 以下是所有响应类型共享的逻辑 ---
-                    
                     checkBlush(botReply);
                     conversationHistory.push({ role: 'assistant', content: botReply });
                    
-                    // 限制历史记录长度
                     if (conversationHistory.length > config.maxHistoryMessages * 2) {
                         conversationHistory = conversationHistory.slice(-config.maxHistoryMessages * 2);
                     }
@@ -306,7 +299,6 @@
                    
                     count++;
                     if (count >= config.maxConversations) {
-                        // 禁用输入
                         input.disabled = true;
                         btn.disabled = true;
                         input.placeholder = 'Conversation is complete.';
@@ -314,6 +306,7 @@
                         addMsg('bot', 'Thank you, our conversation is complete. You will be redirected shortly.');
                         setTimeout(() => {
                             try {
+                                // 你的前端在 Vercel, postMessage 目标必须是 Qualtrics
                                 window.parent.postMessage({ type: 'moveToNextPage' }, 'https://lse.eu.qualtrics.com');
                             } catch(e) {
                                 console.error('Error sending nextPage message:', e);
@@ -325,7 +318,6 @@
                     handleError('Error processing response');
                 }
             }
-            // --- [FIX 1 END] ---
 
             function handleError(error) {
                 console.error('API Error:', error);
@@ -335,7 +327,7 @@
                 const streamMessage = document.getElementById('streaming-message');
                 if (streamMessage) streamMessage.remove();
                
-                addMsg('bot', 'Connection error: Unable to reach the server. Please check your network connection and try again.');
+                addMsg('bot', 'Connection error: Unable to reach the server. Please check your network connection and try again. Details: ' + error);
             }
 
             function checkBlush(text) {
@@ -369,6 +361,7 @@
                 }).join('\n---\n');
                
                 try {
+                    // 你的前端在 Vercel, postMessage 目标必须是 Qualtrics
                     window.parent.postMessage({
                         type: 'saveToQualtrics',
                         history: historyString,
@@ -388,6 +381,7 @@
                 initArinChat();
             });
         } else {
+            // 如果不在 Qualtrics 环境中 (比如在 Vercel 独立运行)，立即初始化
             document.addEventListener('DOMContentLoaded', initArinChat);
         }
 
@@ -396,14 +390,11 @@
             window.Qualtrics = window.Qualtrics || {};
             window.Qualtrics.SurveyEngine = {
                 addOnload: function(callback) {
-                    // --- [FIX 2 START]: 清理本地测试代码 ---
-                    // 移除了不必要的 .bind({})
                     if (document.readyState === 'loading') {
                         document.addEventListener('DOMContentLoaded', callback);
                     } else {
                         callback();
                     }
-                    // --- [FIX 2 END] ---
                 },
                 addOnPageSubmit: function() {},
                 setEmbeddedData: function(k, v) {
@@ -415,13 +406,16 @@
             };
 
             window.addEventListener('message', function(event) {
-                console.log('[Mock Parent Window] Received message:', event.data);
-                if (event.data.type === 'saveToQualtrics') {
-                    Qualtrics.SurveyEngine.setEmbeddedData('ArinChatHistory', event.data.history);
-                    Qualtrics.SurveyEngine.setEmbeddedData('LastArinResponse', event.data.lastResponse);
-                    Qualtrics.SurveyEngine.setEmbeddedData('ConversationCount', event.data.conversationCount);
-                } else if (event.data.type === 'moveToNextPage') {
-                    console.log('[Mock Parent Window] Received moveToNextPage command!');
+                // 确保只处理来自 Qualtrics 的消息
+                if (event.origin === 'https://lse.eu.qualtrics.com') {
+                    console.log('[Mock Parent Window] Received message:', event.data);
+                    if (event.data.type === 'saveToQualtrics') {
+                        Qualtrics.SurveyEngine.setEmbeddedData('ArinChatHistory', event.data.history);
+                        Qualtrics.SurveyEngine.setEmbeddedData('LastArinResponse', event.data.lastResponse);
+                        Qualtrics.SurveyEngine.setEmbeddedData('ConversationCount', event.data.conversationCount);
+                    } else if (event.data.type === 'moveToNextPage') {
+                        console.log('[Mock Parent Window] Received moveToNextPage command!');
+                    }
                 }
             });
         }
