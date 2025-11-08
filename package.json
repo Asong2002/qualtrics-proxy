@@ -2,20 +2,21 @@
   "name": "arin-chat-bot",
   "version": "1.0.0",
   "description": "Arin AI Chat Bot deployed on Vercel",
-  "type": "module",  // 保留ES模块模式（适配Edge Functions的export语法）
+  "type": "module",
   "scripts": {
-    "dev": "vercel dev",  // 本地开发用Vercel CLI，正确
-    "build": "echo 'No build step needed'",  // 静态文件+Edge函数无需构建，简化提示
-    "start": "vercel dev"  // 本地启动统一用vercel dev（替代serve，更贴合部署环境）
+    "dev": "vercel dev",
+    "build": "echo 'No build step needed'",
+    "start": "vercel dev",
+    "deploy": "vercel deploy --prod"  // 新增部署命令，一键部署到生产环境
   },
   "dependencies": {
-    // 移除next：你的项目是静态HTML+Edge Functions，无需Next.js框架
+    // 补充Edge Functions可能需要的基础依赖（根据实际功能添加）
+    "itty-router": "^4.0.23"  // 轻量路由库，适合Edge环境处理请求
   },
   "devDependencies": {
-    "vercel": "^34.0.0"  // 保留Vercel CLI（部署和本地开发核心工具）
-    // 移除serve：用vercel dev替代，更贴近生产环境的请求处理逻辑
+    "vercel": "^34.0.0"
   },
-  "keywords": ["chatbot", "ai", "vercel", "edge-function"],
+  "keywords": ["chatbot", "ai", "vercel", "edge-function", "serverless"],
   "author": "Your Name",
   "license": "MIT"
 }
